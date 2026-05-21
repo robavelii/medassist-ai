@@ -55,12 +55,18 @@ class TestCostCalculation:
 
 
 class TestCacheRetrieval:
-    def test_get_cached_responses_returns_empty_on_error(self, llm_cache_service, mock_db_session):
+    def test_get_cached_responses_returns_empty_on_error(
+        self, llm_cache_service, mock_db_session
+    ):
         mock_db_session.side_effect = Exception("DB error")
         result = llm_cache_service.get_cached_responses_by_patient_id("test-patient")
         assert result == []
 
-    def test_get_latest_cached_response_returns_none_on_error(self, llm_cache_service, mock_db_session):
+    def test_get_latest_cached_response_returns_none_on_error(
+        self, llm_cache_service, mock_db_session
+    ):
         mock_db_session.side_effect = Exception("DB error")
-        result = llm_cache_service.get_latest_cached_response_by_patient_and_model("test-patient", "triage")
+        result = llm_cache_service.get_latest_cached_response_by_patient_and_model(
+            "test-patient", "triage"
+        )
         assert result is None

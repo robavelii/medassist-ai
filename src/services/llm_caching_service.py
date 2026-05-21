@@ -3,7 +3,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
-from openai import AsyncOpenAI
+from litellm import acompletion
 
 from src.core.config import configs
 from src.models.llm_cache_model import LLMCache
@@ -11,9 +11,6 @@ from src.utils.llm_security import count_tokens
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-openai_client = AsyncOpenAI(api_key=configs.OPENAI_API_KEY)
 
 
 class LLMCacheService:
@@ -25,11 +22,15 @@ class LLMCacheService:
         content = f"{model}:{structured_prompt}"
         return hashlib.sha256(content.encode()).hexdigest()
 
-    def _calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> Dict[str, float]:
+    def _calculate_cost(
+        self, model: str, input_tokens: int, output_tokens: int
+    ) -> Dict[str, float]:
         """Calculate the cost of an API request based on token usage."""
         pricing = configs.MODEL_PRICING.get(model)
         if not pricing:
-            logger.warning(f"Unknown model pricing for {model}, using gpt-4o pricing from configs.")
+            logger.warning(
+                f"Unknown model pricing for {model}, using gpt-4o pricing from configs."
+            )
             pricing = configs.MODEL_PRICING["gpt-4o"]
 
         input_cost = (input_tokens / 1_000) * pricing["input_cost_per_1k_tokens"]
@@ -51,7 +52,7 @@ class LLMCacheService:
         self,
         structured_prompt: str,
         prompt_name: str,
-        model: str = "gpt-4o",
+        model: Optional[str] = None,
         response_format=None,
         patient_id: Optional[str] = None,
         visit_id: Optional[str] = None,
@@ -70,6 +71,9 @@ class LLMCacheService:
         Returns:
             Tuple of (response_string, input_tokens, output_tokens)
         """
+        if not model:
+            model = configs.DEFAULT_LLM_MODEL
+
         cache_key = self._generate_cache_key(structured_prompt, model)
         actual_input_tokens = 0
         output_tokens = 0
@@ -116,7 +120,7 @@ class LLMCacheService:
             if response_format is not None:
                 request_kwargs["response_format"] = response_format
 
-            response = await openai_client.chat.completions.create(**request_kwargs)
+            response = await acompletion(**request_kwargs)
 
             if not response.choices or not response.choices[0].message.content:
                 logger.error("Empty response from OpenAI API")
@@ -133,7 +137,9 @@ class LLMCacheService:
                 output_tokens = count_tokens(response_content)
                 total_tokens = actual_input_tokens + output_tokens
 
-            cost_info_for_logging = self._calculate_cost(model, actual_input_tokens, output_tokens)
+            cost_info_for_logging = self._calculate_cost(
+                model, actual_input_tokens, output_tokens
+            )
 
             logger.info(
                 f"API REQUEST COST - Model: {model} | "
@@ -144,7 +150,9 @@ class LLMCacheService:
             )
 
             # Cache the response
-            cost_info_for_caching = self._calculate_cost(model, actual_input_tokens, output_tokens)
+            cost_info_for_caching = self._calculate_cost(
+                model, actual_input_tokens, output_tokens
+            )
             await self._cache_response(
                 cache_key,
                 structured_prompt,
@@ -194,26 +202,42 @@ class LLMCacheService:
                 logger.info(f"Response cached successfully: {cache_key[:12]}")
 
         except Exception as e:
-            logger.warning(f"Failed to cache response: {e} {cache_key[:12]}", exc_info=True)
+            logger.warning(
+                f"Failed to cache response: {e} {cache_key[:12]}", exc_info=True
+            )
 
     def get_cached_responses_by_patient_id(self, patient_id: str) -> List[LLMCache]:
         """Fetch all cached LLM responses for a given patient_id."""
         try:
             with self.db_session() as session:
-                cached_responses = session.query(LLMCache).filter(LLMCache.patient_id == patient_id).all()
-                logger.info(f"Fetched {len(cached_responses)} cached responses for patient_id: {patient_id}")
+                cached_responses = (
+                    session.query(LLMCache)
+                    .filter(LLMCache.patient_id == patient_id)
+                    .all()
+                )
+                logger.info(
+                    f"Fetched {len(cached_responses)} cached responses for patient_id: {patient_id}"
+                )
                 return cached_responses
         except Exception as e:
-            logger.error(f"Failed to fetch cached responses for patient_id {patient_id}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to fetch cached responses for patient_id {patient_id}: {e}",
+                exc_info=True,
+            )
             return []
 
-    def get_latest_cached_response_by_patient_and_model(self, patient_id: str, model_name: str) -> Optional[LLMCache]:
+    def get_latest_cached_response_by_patient_and_model(
+        self, patient_id: str, model_name: str
+    ) -> Optional[LLMCache]:
         """Fetch the latest cached LLM response for a given patient_id and model_name."""
         try:
             with self.db_session() as session:
                 cached_response = (
                     session.query(LLMCache)
-                    .filter(LLMCache.patient_id == patient_id, LLMCache.model_name == model_name)
+                    .filter(
+                        LLMCache.patient_id == patient_id,
+                        LLMCache.model_name == model_name,
+                    )
                     .order_by(LLMCache.created_at.desc())
                     .first()
                 )
@@ -222,7 +246,9 @@ class LLMCacheService:
                         f"Fetched latest cached response for patient_id: {patient_id}, model_name: {model_name}"
                     )
                 else:
-                    logger.info(f"No cached response found for patient_id: {patient_id}, model_name: {model_name}")
+                    logger.info(
+                        f"No cached response found for patient_id: {patient_id}, model_name: {model_name}"
+                    )
                 return cached_response
         except Exception as e:
             logger.error(
@@ -231,17 +257,24 @@ class LLMCacheService:
             )
             return None
 
-    def get_cached_responses_by_patient_id_and_model(self, patient_id: str, model_name: str) -> List[LLMCache]:
+    def get_cached_responses_by_patient_id_and_model(
+        self, patient_id: str, model_name: str
+    ) -> List[LLMCache]:
         """Fetch all cached LLM responses for a given patient_id and model_name."""
         try:
             with self.db_session() as session:
                 cached_responses = (
                     session.query(LLMCache)
-                    .filter(LLMCache.patient_id == patient_id, LLMCache.model_name == model_name)
+                    .filter(
+                        LLMCache.patient_id == patient_id,
+                        LLMCache.model_name == model_name,
+                    )
                     .order_by(LLMCache.created_at)
                     .all()
                 )
-                logger.info(f"Fetched {len(cached_responses)} cached responses for patient_id: {patient_id}")
+                logger.info(
+                    f"Fetched {len(cached_responses)} cached responses for patient_id: {patient_id}"
+                )
                 return cached_responses
         except Exception as e:
             logger.error(

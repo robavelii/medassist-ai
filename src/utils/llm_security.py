@@ -60,7 +60,9 @@ INJECTION_PATTERNS = [
 ]
 
 # Compile regex patterns for efficiency
-COMPILED_PATTERNS = [re.compile(pattern, re.IGNORECASE) for pattern in INJECTION_PATTERNS]
+COMPILED_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE) for pattern in INJECTION_PATTERNS
+]
 
 # Special characters that need escaping in prompts
 SPECIAL_CHARS_PATTERN = re.compile(r"([<>{}\\])")
@@ -85,7 +87,9 @@ def count_tokens(text: str) -> int:
     try:
         return len(TOKEN_ENCODER.encode(text))
     except Exception as e:
-        security_logger.warning(f"Token counting failed: {e}. Using character estimate.")
+        security_logger.warning(
+            f"Token counting failed: {e}. Using character estimate."
+        )
         # Fallback: estimate ~4 characters per token
         return len(text) // 4
 
@@ -148,7 +152,9 @@ def sanitize_for_llm(text: str, max_tokens: int = PROMPT_MAX_TOKENS) -> str:
     if token_count > max_tokens:
         char_limit = int((max_tokens / token_count) * len(sanitized_text))
         sanitized_text = sanitized_text[:char_limit] + "... [TRUNCATED]"
-        security_logger.info(f"Input truncated from {token_count} to ~{max_tokens} tokens")
+        security_logger.info(
+            f"Input truncated from {token_count} to ~{max_tokens} tokens"
+        )
 
     # Log if injection was detected
     if injection_attempts:
@@ -207,7 +213,9 @@ Please process the user input according to the system instruction above. Your re
     return structured_prompt
 
 
-def validate_ai_response(response: str, expected_format: Dict[str, Any]) -> Tuple[bool, Optional[Dict[str, Any]]]:
+def validate_ai_response(
+    response: str, expected_format: Dict[str, Any]
+) -> Tuple[bool, Optional[Dict[str, Any]]]:
     """
     Validate that a response matches the expected format.
 
@@ -228,7 +236,9 @@ def validate_ai_response(response: str, expected_format: Dict[str, Any]) -> Tupl
 
                 if key == "response":
                     if key not in parsed:
-                        security_logger.warning(f"Missing required key in response: {key}")
+                        security_logger.warning(
+                            f"Missing required key in response: {key}"
+                        )
                         return False, None
                 elif key not in parsed.get("response", {}):
                     security_logger.warning(f"Missing required key in response: {key}")
@@ -238,14 +248,26 @@ def validate_ai_response(response: str, expected_format: Dict[str, Any]) -> Tupl
             response_data = parsed.get("response", {})
             for key, expected_type in expected_format["types"].items():
                 if key in response_data:
-                    if expected_type == "boolean" and not isinstance(response_data[key], bool):
-                        security_logger.warning(f"Invalid type for {key}: expected boolean")
+                    if expected_type == "boolean" and not isinstance(
+                        response_data[key], bool
+                    ):
+                        security_logger.warning(
+                            f"Invalid type for {key}: expected boolean"
+                        )
                         return False, None
-                    elif expected_type == "string" and not isinstance(response_data[key], str):
-                        security_logger.warning(f"Invalid type for {key}: expected string")
+                    elif expected_type == "string" and not isinstance(
+                        response_data[key], str
+                    ):
+                        security_logger.warning(
+                            f"Invalid type for {key}: expected string"
+                        )
                         return False, None
-                    elif expected_type == "number" and not isinstance(response_data[key], (int, float)):
-                        security_logger.warning(f"Invalid type for {key}: expected number")
+                    elif expected_type == "number" and not isinstance(
+                        response_data[key], (int, float)
+                    ):
+                        security_logger.warning(
+                            f"Invalid type for {key}: expected number"
+                        )
                         return False, None
 
         if "validators" in expected_format:
@@ -284,7 +306,12 @@ def create_safe_json_prompt(data: Dict[str, Any]) -> str:
             safe_data[key] = create_safe_json_prompt(value)
         elif isinstance(value, list):
             safe_data[key] = [
-                (sanitize_for_llm(item, max_tokens=500) if isinstance(item, str) else item) for item in value
+                (
+                    sanitize_for_llm(item, max_tokens=500)
+                    if isinstance(item, str)
+                    else item
+                )
+                for item in value
             ]
         else:
             safe_data[key] = value
@@ -300,4 +327,6 @@ def log_security_event(event_type: str, details: Dict[str, Any]) -> None:
         event_type: Type of security event
         details: Additional details about the event
     """
-    security_logger.warning(f"Security event: {event_type}", event_type=event_type, **details)
+    security_logger.warning(
+        f"Security event: {event_type}", event_type=event_type, **details
+    )

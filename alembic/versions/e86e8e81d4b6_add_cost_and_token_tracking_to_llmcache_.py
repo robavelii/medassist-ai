@@ -21,7 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.add_column("llm_cache", sa.Column("model_name", sa.String(length=50), nullable=True))
+    op.add_column(
+        "llm_cache", sa.Column("model_name", sa.String(length=50), nullable=True)
+    )
     op.add_column("llm_cache", sa.Column("input_tokens", sa.Integer(), nullable=True))
     op.add_column("llm_cache", sa.Column("output_tokens", sa.Integer(), nullable=True))
     op.add_column("llm_cache", sa.Column("total_cost", sa.Float(), nullable=True))
@@ -33,9 +35,15 @@ def upgrade() -> None:
     op.execute("UPDATE llm_cache SET total_cost = 0.0 WHERE total_cost IS NULL")
 
     # Alter columns to be non-nullable
-    op.alter_column("llm_cache", "model_name", existing_type=sa.String(length=50), nullable=False)
-    op.alter_column("llm_cache", "input_tokens", existing_type=sa.Integer(), nullable=False)
-    op.alter_column("llm_cache", "output_tokens", existing_type=sa.Integer(), nullable=False)
+    op.alter_column(
+        "llm_cache", "model_name", existing_type=sa.String(length=50), nullable=False
+    )
+    op.alter_column(
+        "llm_cache", "input_tokens", existing_type=sa.Integer(), nullable=False
+    )
+    op.alter_column(
+        "llm_cache", "output_tokens", existing_type=sa.Integer(), nullable=False
+    )
     op.alter_column("llm_cache", "total_cost", existing_type=sa.Float(), nullable=False)
 
 

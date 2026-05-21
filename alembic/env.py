@@ -48,10 +48,14 @@ def run_migrations_online() -> None:
     db_url = os.getenv("DATABASE_URI")
     if db_url:
         if "postgresql+asyncpg://" in db_url:
-            configuration["sqlalchemy.url"] = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+            configuration["sqlalchemy.url"] = db_url.replace(
+                "postgresql+asyncpg://", "postgresql+psycopg2://"
+            )
             configuration["sqlalchemy.drivername"] = "postgresql+psycopg2"
         elif "sqlite+aiosqlite://" in db_url:
-            configuration["sqlalchemy.url"] = db_url.replace("sqlite+aiosqlite://", "sqlite://")
+            configuration["sqlalchemy.url"] = db_url.replace(
+                "sqlite+aiosqlite://", "sqlite://"
+            )
             configuration["sqlalchemy.drivername"] = "sqlite"
         else:
             configuration["sqlalchemy.url"] = db_url

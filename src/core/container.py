@@ -14,4 +14,6 @@ class Container(containers.DeclarativeContainer):
     db_session = providers.Singleton(db.provided.session)
 
     llm_cache_service = providers.Factory(LLMCacheService, db_session=db_session)
-    clinical_assistant_service = providers.Factory(ClinicalAssistantService, llm_cache_service=llm_cache_service)
+    clinical_assistant_service = providers.Factory(
+        ClinicalAssistantService, llm_cache_service=llm_cache_service
+    )

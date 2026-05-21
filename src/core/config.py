@@ -32,7 +32,9 @@ class Config(BaseSettings):
         self._load_prompts()
 
     def _load_prompts(self):
-        prompts_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "prompts")
+        prompts_dir = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "prompts"
+        )
         self.PROMPTS = {}
         if os.path.exists(prompts_dir) and os.path.isdir(prompts_dir):
             for filename in os.listdir(prompts_dir):
@@ -47,16 +49,21 @@ class Config(BaseSettings):
 
     API_ROOT_PATH: str = os.getenv("API_ROOT_PATH", "/")
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    DEFAULT_LLM_MODEL: str = os.getenv("DEFAULT_LLM_MODEL", "gpt-4o")
     API_KEY_SECRET: str = os.getenv("API_KEY_SECRET", "")
     DATABASE_URI: str = os.getenv("DATABASE_URI", "sqlite:///./db.sqlite3")
     DEFAULT_LOCALE: Optional[str] = os.getenv("DEFAULT_LOCALE", None)
 
     cors_origins_str: Optional[str] = os.getenv("CORS_ALLOWED_ORIGINS", None)
     BACKEND_CORS_ORIGINS: List[str] = (
-        [origin.strip() for origin in cors_origins_str.split(",")] if cors_origins_str else ["*"]
+        [origin.strip() for origin in cors_origins_str.split(",")]
+        if cors_origins_str
+        else ["*"]
     )
 
-    SQLALCHEMY_LOGGING: bool = os.getenv("SQLALCHEMY_LOGGING", "False").lower() == "true"
+    SQLALCHEMY_LOGGING: bool = (
+        os.getenv("SQLALCHEMY_LOGGING", "False").lower() == "true"
+    )
 
 
 configs = Config()

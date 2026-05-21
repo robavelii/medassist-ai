@@ -2,11 +2,7 @@ from dependency_injector.wiring import Provide, inject
 from fastapi import APIRouter, Depends
 
 from src.core.container import Container
-from src.models.clinical_models import (
-    BaseInput,
-    EmergencyTriageInput,
-    Vitals,
-)
+from src.models.clinical_models import BaseInput, EmergencyTriageInput, Vitals
 from src.services.clinical_assistant_service import ClinicalAssistantService
 
 router = APIRouter(prefix="/demo", tags=["demo"])

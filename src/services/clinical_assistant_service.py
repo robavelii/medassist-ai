@@ -59,8 +59,10 @@ class ClinicalAssistantService:
         """
         Fetches and parses the latest cached LLM response for a given patient_id and prompt_name.
         """
-        cached_entry = self.llm_cache_service.get_latest_cached_response_by_patient_and_model(
-            patient_id=patient_id, model_name=prompt_name
+        cached_entry = (
+            self.llm_cache_service.get_latest_cached_response_by_patient_and_model(
+                patient_id=patient_id, model_name=prompt_name
+            )
         )
         if not cached_entry:
             return None
@@ -74,7 +76,9 @@ class ClinicalAssistantService:
                 return ChatHistoryOutput(patient_id=patient_id, history=history)
             elif output_model == FollowBackQuestionOutput:
                 questions_data = parsed_response.get("questions", [])
-                return FollowBackQuestionOutput(patient_id=patient_id, questions=questions_data)
+                return FollowBackQuestionOutput(
+                    patient_id=patient_id, questions=questions_data
+                )
             elif output_model == ChatResponseOutput:
                 response_content = parsed_response.get("response", "")
                 return ChatResponseOutput(
@@ -120,7 +124,9 @@ class ClinicalAssistantService:
         llm_user_prompt_content = user_prompt_content.copy()
 
         dump_llm_user_prompt_content = json.dumps(llm_user_prompt_content)
-        sanitized_llm_user_prompt_content = sanitize_for_llm(dump_llm_user_prompt_content, max_tokens=4000)
+        sanitized_llm_user_prompt_content = sanitize_for_llm(
+            dump_llm_user_prompt_content, max_tokens=4000
+        )
 
         try:
             unescaped_sanitized = sanitized_llm_user_prompt_content.replace("\\", "")
@@ -139,7 +145,9 @@ class ClinicalAssistantService:
         except Exception as e:
             logger.error(f"Error parsing sanitized content: {e}")
 
-        structured_prompt = create_structured_prompt(system_prompt_content, sanitized_llm_user_prompt_content)
+        structured_prompt = create_structured_prompt(
+            system_prompt_content, sanitized_llm_user_prompt_content
+        )
         llm_response_str, _, _ = await self.llm_cache_service.get_llm_response(
             structured_prompt=structured_prompt,
             prompt_name=prompt_name,
@@ -164,7 +172,9 @@ class ClinicalAssistantService:
                 return ChatHistoryOutput(patient_id=patient_id, history=history)
             elif output_model == FollowBackQuestionOutput:
                 questions_data = parsed_response.get("questions", [])
-                return FollowBackQuestionOutput(patient_id=patient_id, questions=questions_data)
+                return FollowBackQuestionOutput(
+                    patient_id=patient_id, questions=questions_data
+                )
             elif output_model == ChatResponseOutput:
                 response_content = parsed_response.get("response", "")
                 return ChatResponseOutput(
@@ -198,14 +208,23 @@ class ClinicalAssistantService:
                 result = output_model(**model_arguments)
 
                 # Check for follow-up questions and cache them separately
-                if hasattr(result, "follow_up_questions") and result.follow_up_questions:
+                if (
+                    hasattr(result, "follow_up_questions")
+                    and result.follow_up_questions
+                ):
                     await self.llm_cache_service._cache_response(
                         cache_key=str(uuid.uuid4()),
                         structured_prompt=json.dumps(
-                            {"patient_id": patient_id, "questions": result.follow_up_questions}
+                            {
+                                "patient_id": patient_id,
+                                "questions": result.follow_up_questions,
+                            }
                         ),
                         response_content=json.dumps(
-                            {"patient_id": patient_id, "questions": result.follow_up_questions}
+                            {
+                                "patient_id": patient_id,
+                                "questions": result.follow_up_questions,
+                            }
                         ),
                         prompt_name="follow_back_questions",
                         input_tokens=0,
@@ -215,31 +234,49 @@ class ClinicalAssistantService:
                         visit_id=visit_id,
                     )
 
-                if output_model not in [ChatHistoryOutput, FollowBackQuestionOutput, ChatResponseOutput]:
+                if output_model not in [
+                    ChatHistoryOutput,
+                    FollowBackQuestionOutput,
+                    ChatResponseOutput,
+                ]:
                     response_content = json.dumps(result.model_dump(mode="json"))
-                    assistant_chat_message = ChatMessage(role="assistant", content=response_content)
-                    await self.save_chat_message(patient_id, assistant_chat_message, visit_id)
+                    assistant_chat_message = ChatMessage(
+                        role="assistant", content=response_content
+                    )
+                    await self.save_chat_message(
+                        patient_id, assistant_chat_message, visit_id
+                    )
 
                 return result
         except (json.JSONDecodeError, TypeError) as e:
             logger.error(f"Error parsing LLM response for {output_model.__name__}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error processing LLM response: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Error processing LLM response: {e}"
+            )
 
-    async def triage_cold_cases(self, input_data: TriageColdCaseInput) -> TriageColdCaseOutput:
+    async def triage_cold_cases(
+        self, input_data: TriageColdCaseInput
+    ) -> TriageColdCaseOutput:
         return await self._get_llm_response_for_prompt(
             "triage_cold_cases",
             input_data.model_dump(mode="json"),
             TriageColdCaseOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
-    async def emergency_triage(self, input_data: EmergencyTriageInput) -> EmergencyTriageOutput:
+    async def emergency_triage(
+        self, input_data: EmergencyTriageInput
+    ) -> EmergencyTriageOutput:
         return await self._get_llm_response_for_prompt(
             "emergency_triage",
             input_data.model_dump(mode="json"),
             EmergencyTriageOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -251,7 +288,9 @@ class ClinicalAssistantService:
             "outpatient_history_physical_exam",
             input_data.model_dump(mode="json"),
             OutpatientHPEOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -263,7 +302,9 @@ class ClinicalAssistantService:
             "outpatient_lab_result_interpretation",
             input_data.model_dump(mode="json"),
             LabResultInterpretationOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -275,7 +316,9 @@ class ClinicalAssistantService:
             "radiology_image_interpretation",
             input_data.model_dump(mode="json"),
             RadiologyImageInterpretationOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -284,7 +327,9 @@ class ClinicalAssistantService:
             "diagnosis",
             input_data.model_dump(mode="json"),
             DiagnosisOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -293,16 +338,22 @@ class ClinicalAssistantService:
             "medication",
             input_data.model_dump(mode="json"),
             MedicationOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
-    async def inpatient_admitted_patients(self, input_data: InpatientInput) -> InpatientOutput:
+    async def inpatient_admitted_patients(
+        self, input_data: InpatientInput
+    ) -> InpatientOutput:
         return await self._get_llm_response_for_prompt(
             "inpatient_admitted_patients",
             input_data.model_dump(mode="json"),
             InpatientOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
@@ -311,23 +362,31 @@ class ClinicalAssistantService:
             "visit_summary",
             input_data.model_dump(mode="json"),
             VisitSummaryOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
-    async def patient_education(self, input_data: PatientEducationInput) -> PatientEducationOutput:
+    async def patient_education(
+        self, input_data: PatientEducationInput
+    ) -> PatientEducationOutput:
         return await self._get_llm_response_for_prompt(
             "patient_education",
             input_data.model_dump(mode="json"),
             PatientEducationOutput,
-            patient_id=input_data.patient_info.patient_id if input_data.patient_info else None,
+            patient_id=(
+                input_data.patient_info.patient_id if input_data.patient_info else None
+            ),
             visit_id=input_data.visit_info.visit_id if input_data.visit_info else None,
         )
 
     async def get_chat_history(self, patient_id: str) -> ChatHistoryOutput:
         """Retrieves the chat history for a given patient."""
-        cached_entries = self.llm_cache_service.get_cached_responses_by_patient_id_and_model(
-            patient_id=patient_id, model_name="chat_history"
+        cached_entries = (
+            self.llm_cache_service.get_cached_responses_by_patient_id_and_model(
+                patient_id=patient_id, model_name="chat_history"
+            )
         )
         history = []
         for entry in cached_entries:
@@ -338,26 +397,42 @@ class ClinicalAssistantService:
                 if isinstance(parsed_response, list):
                     for msg_data in parsed_response:
                         if isinstance(msg_data, dict):
-                            msg_data_with_timestamp = {**msg_data, "created_at": entry_created_at}
+                            msg_data_with_timestamp = {
+                                **msg_data,
+                                "created_at": entry_created_at,
+                            }
                             history.append(ChatMessage(**msg_data_with_timestamp))
                         else:
-                            logger.warning(f"Unexpected chat message format in list: {msg_data}")
+                            logger.warning(
+                                f"Unexpected chat message format in list: {msg_data}"
+                            )
                 elif isinstance(parsed_response, dict):
-                    parsed_response_with_timestamp = {**parsed_response, "created_at": entry_created_at}
+                    parsed_response_with_timestamp = {
+                        **parsed_response,
+                        "created_at": entry_created_at,
+                    }
                     history.append(ChatMessage(**parsed_response_with_timestamp))
                 else:
-                    logger.warning(f"Unexpected cached chat response format: {parsed_response}")
+                    logger.warning(
+                        f"Unexpected cached chat response format: {parsed_response}"
+                    )
             except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Error parsing chat history entry for patient {patient_id}: {e}")
+                logger.error(
+                    f"Error parsing chat history entry for patient {patient_id}: {e}"
+                )
 
         sorted_history = sorted(history, key=lambda msg: msg.created_at)
 
         return ChatHistoryOutput(patient_id=patient_id, history=sorted_history)
 
-    async def get_follow_back_questions(self, patient_id: str) -> FollowBackQuestionOutput:
+    async def get_follow_back_questions(
+        self, patient_id: str
+    ) -> FollowBackQuestionOutput:
         """Retrieves follow-back questions for a given patient."""
-        cached_entries = self.llm_cache_service.get_cached_responses_by_patient_id_and_model(
-            patient_id=patient_id, model_name="follow_back_questions"
+        cached_entries = (
+            self.llm_cache_service.get_cached_responses_by_patient_id_and_model(
+                patient_id=patient_id, model_name="follow_back_questions"
+            )
         )
         all_questions = []
         for entry in cached_entries:
@@ -371,16 +446,22 @@ class ClinicalAssistantService:
                         f"Cached follow-back questions entry for patient {patient_id} is not a list: {questions_data}"
                     )
             except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Error parsing follow-back questions entry for patient {patient_id}: {e}")
+                logger.error(
+                    f"Error parsing follow-back questions entry for patient {patient_id}: {e}"
+                )
         return FollowBackQuestionOutput(patient_id=patient_id, questions=all_questions)
 
-    async def save_chat_message(self, patient_id: str, message: ChatMessage, visit_id: Optional[str] = None) -> None:
+    async def save_chat_message(
+        self, patient_id: str, message: ChatMessage, visit_id: Optional[str] = None
+    ) -> None:
         """Saves a single chat message to the cache."""
         message_content = message.model_dump_json()
         cache_key = str(uuid.uuid4())
         await self.llm_cache_service._cache_response(
             cache_key=cache_key,
-            structured_prompt=json.dumps({"patient_id": patient_id, "message": message_content}),
+            structured_prompt=json.dumps(
+                {"patient_id": patient_id, "message": message_content}
+            ),
             response_content=message_content,
             prompt_name="chat_history",
             input_tokens=0,
@@ -399,7 +480,9 @@ class ClinicalAssistantService:
 
         # Get previous chat history and medical context
         chat_history = await self.get_chat_history(patient_id)
-        all_cached_responses = self.llm_cache_service.get_cached_responses_by_patient_id(patient_id)
+        all_cached_responses = (
+            self.llm_cache_service.get_cached_responses_by_patient_id(patient_id)
+        )
 
         patient_info_summary = None
         latest_vitals_summary = None
@@ -408,7 +491,8 @@ class ClinicalAssistantService:
             non_chat_entries = [
                 entry
                 for entry in all_cached_responses
-                if entry.model_name not in ["chat_history", "chat", "follow_back_questions"]
+                if entry.model_name
+                not in ["chat_history", "chat", "follow_back_questions"]
             ]
             if non_chat_entries:
                 context_items = []
@@ -417,7 +501,9 @@ class ClinicalAssistantService:
                 for entry in non_chat_entries:
                     try:
                         prompt_data = json.loads(entry.structured_prompt)
-                        user_content_str = prompt_data.get("messages", [{}])[0].get("content", "{}")
+                        user_content_str = prompt_data.get("messages", [{}])[0].get(
+                            "content", "{}"
+                        )
                         user_content = json.loads(user_content_str)
 
                         if not patient_info_summary and "patient_info" in user_content:
@@ -441,14 +527,22 @@ class ClinicalAssistantService:
                             ]:
                                 value = vitals.get(vital_key)
                                 if value is not None:
-                                    vitals_summary_parts.append(f"{vital_key.replace('_', ' ').title()}: {value}")
+                                    vitals_summary_parts.append(
+                                        f"{vital_key.replace('_', ' ').title()}: {value}"
+                                    )
                                 else:
-                                    vitals_summary_parts.append(f"{vital_key.replace('_', ' ').title()}: Not provided")
+                                    vitals_summary_parts.append(
+                                        f"{vital_key.replace('_', ' ').title()}: Not provided"
+                                    )
 
                             if vitals_summary_parts:
-                                latest_vitals_summary = f"Latest Vitals: {'; '.join(vitals_summary_parts)}."
+                                latest_vitals_summary = (
+                                    f"Latest Vitals: {'; '.join(vitals_summary_parts)}."
+                                )
                             else:
-                                latest_vitals_summary = "Latest Vitals: No vital signs provided."
+                                latest_vitals_summary = (
+                                    "Latest Vitals: No vital signs provided."
+                                )
                     except (json.JSONDecodeError, KeyError, IndexError):
                         continue
 
@@ -459,8 +553,14 @@ class ClinicalAssistantService:
 
                         summary_parts = []
                         for key, value in main_content.items():
-                            if value and key not in ["patient_id", "visit_id", "confidence_score"]:
-                                summary_parts.append(f"{key.replace('_', ' ').title()}: {json.dumps(value)}")
+                            if value and key not in [
+                                "patient_id",
+                                "visit_id",
+                                "confidence_score",
+                            ]:
+                                summary_parts.append(
+                                    f"{key.replace('_', ' ').title()}: {json.dumps(value)}"
+                                )
                         readable_summary = "; ".join(summary_parts)
 
                         task_name = entry.model_name or "an unspecified task"
@@ -490,7 +590,9 @@ class ClinicalAssistantService:
         formatted_chat_history_parts = []
         for msg in chat_history.history:
             formatted_chat_history_parts.append(f"{msg.role.upper()}: {msg.content}")
-        formatted_chat_history_parts.append(f"{user_chat_message.role.upper()}: {user_chat_message.content}")
+        formatted_chat_history_parts.append(
+            f"{user_chat_message.role.upper()}: {user_chat_message.content}"
+        )
         formatted_chat_history_string = "\n".join(formatted_chat_history_parts)
 
         llm_response_output = await self._get_llm_response_for_prompt(
@@ -505,7 +607,9 @@ class ClinicalAssistantService:
         )
 
         # Save the LLM's response to chat history
-        assistant_chat_message = ChatMessage(role="assistant", content=llm_response_output.response)
+        assistant_chat_message = ChatMessage(
+            role="assistant", content=llm_response_output.response
+        )
         await self.save_chat_message(patient_id, assistant_chat_message, visit_id)
 
         return llm_response_output
@@ -563,7 +667,9 @@ class ClinicalAssistantService:
                 prompt_config = config.configs.PROMPTS.get(endpoint_name, {})
                 system_instruction = prompt_config.get("system_instruction", "")
                 sample_json = json.dumps(sample.model_dump(mode="json"))
-                estimated_input = count_tokens(system_instruction) + count_tokens(sample_json)
+                estimated_input = count_tokens(system_instruction) + count_tokens(
+                    sample_json
+                )
                 estimated_output = defaults["output"]
             else:
                 estimated_input = defaults["input"]
@@ -579,8 +685,12 @@ class ClinicalAssistantService:
             # Calculate cost per model
             costs_by_model = {}
             for model_name, pricing in config.configs.MODEL_PRICING.items():
-                input_cost = (estimated_input / 1_000) * pricing["input_cost_per_1k_tokens"]
-                output_cost = (estimated_output / 1_000) * pricing["output_cost_per_1k_tokens"]
+                input_cost = (estimated_input / 1_000) * pricing[
+                    "input_cost_per_1k_tokens"
+                ]
+                output_cost = (estimated_output / 1_000) * pricing[
+                    "output_cost_per_1k_tokens"
+                ]
                 model_cost = input_cost + output_cost
                 costs_by_model[model_name] = round(model_cost, 6)
 

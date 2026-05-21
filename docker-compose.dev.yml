@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medassist-app-dev
+    ports:
+      - "7000:7000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - API_KEY_SECRET=${API_KEY_SECRET}
+      - ENVIRONMENT=development
+      - DATABASE_URI=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./:/app
+      - /app/.venv
+      - /app/__pycache__
+    networks:
+      - medassist-network
+    restart: unless-stopped
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:15
+    container_name: medassist-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - medassist-network
+    restart: unless-stopped
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: medassist-dozzle
+    ports:
+      - "9090:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - medassist-network
+    restart: unless-stopped
+    environment:
+      - DOZZLE_LEVEL=info
+
+  adminer:
+    image: adminer
+    container_name: medassist-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    networks:
+      - medassist-network
+
+volumes:
+  postgres_data:
+    name: medassist-postgres-data
+
+networks:
+  medassist-network:
+    driver: bridge
